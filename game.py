@@ -76,10 +76,12 @@ def ai_predict_next(seq, model):
 # Computer bats
 def comp_bat_user_bowl(target, difficulty=2, model=None):
     score = 0
-    print("\n--- Computer Batting ---")
-    while True:
+    ball_count = 0
+    print("\n--- Computer Batting (2 Overs Max) ---")
+
+    while ball_count < 12:
         try:
-            user_input = int(input("Enter number (1-6): "))
+            user_input = int(input(f"Ball {ball_count+1}/12 - Enter number (1-6): "))
             if not (1 <= user_input <= 6): continue
         except:
             continue
@@ -94,8 +96,10 @@ def comp_bat_user_bowl(target, difficulty=2, model=None):
             comp_choice = random.choices(range(1, 7), weights=weights)[0]
         else:
             comp_choice = ai_predict_next(user_bowl_sequence, model)
-            # pass
+
         print(f"Computer chose: {comp_choice}")
+        ball_count += 1
+
         if comp_choice == user_input:
             print(f"OUT! Final Computer Score: {score}")
             break
@@ -105,16 +109,22 @@ def comp_bat_user_bowl(target, difficulty=2, model=None):
             if target != -1 and score >= target:
                 break
 
+    if ball_count == 12:
+        print("Innings Over (12 balls)")
+        print(f"Final Computer Score: {score}")
+
     return score
 
 # User bats
 def user_bat_comp_ball(target, model=None, difficulty=1):
     score = 0
     user_bat_sequence = []
-    print("\n--- You Batting ---")
-    while True:
+    ball_count = 0
+    print("\n--- You Batting (2 Overs Max) ---")
+
+    while ball_count < 12:
         try:
-            ask = int(input("Enter number (1-6): "))
+            ask = int(input(f"Ball {ball_count+1}/12 - Enter number (1-6): "))
         except ValueError:
             continue
         while ask < 1 or ask > 6:
@@ -122,14 +132,13 @@ def user_bat_comp_ball(target, model=None, difficulty=1):
 
         user_bat_sequence.append(ask)
 
-        # AI prediction for Hard mode
         if difficulty == 3 and model is not None:
             comp_choice = ai_predict_next(user_bat_sequence, model)
         else:
-            # Medium or Easy: random bowl
             comp_choice = random.randint(1, 6)
 
         print(f"Computer bowled: {comp_choice}")
+        ball_count += 1
 
         if comp_choice == ask:
             print("You are OUT!")
@@ -141,8 +150,11 @@ def user_bat_comp_ball(target, model=None, difficulty=1):
             if target != -1 and score >= target:
                 break
 
-    # Save for training if difficulty is 2
-    if difficulty == 2:
+    if ball_count == 12:
+        print("Innings Over (12 balls)")
+        print(f"Your Final Score: {score}")
+
+    if difficulty in [2, 3]:
         save_batting_sequence(user_bat_sequence)
 
     return score
