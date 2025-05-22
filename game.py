@@ -1,18 +1,20 @@
 import random
+import os
+import json
+import torch
 from collections import defaultdict
 from utils import save_sequence, update_stats
 from ai_model import load_model
-import torch
-import os
-import json
+from collections import Counter
 
 # Global memory
 user_bat_memory = defaultdict(int)
-user_bowl_memory = defaultdict(int)
 user_bat_sequence = []
+
+user_bowl_memory = defaultdict(int)
 user_bowl_sequence = []
 
-
+BALL_COUNT = 18
 def save_batting_sequence(sequence):
     os.makedirs("data", exist_ok=True)
     file_path = "data/bat_sequences.json"
@@ -31,18 +33,16 @@ def save_batting_sequence(sequence):
     with open(file_path, "w") as f:
         json.dump(data, f, indent=4)
 
-
 # Ask difficulty
 def select_difficulty():
     print("\nChoose Difficulty:")
     print("1. Easy")
-    print("2. Medium (AI adapts to your habits)")
-    print("3. Hard (AI learns patterns over time)")
+    print("2. Hard (AI learns patterns over time)")
     while True:
         try:
-            level = int(input("Enter 1/2/3: "))
-            if level in [1, 2, 3]:
-                return level
+            level = int(input("Enter 1/2: "))
+            if level in [1, 2]:
+                return 1 if level == 1 else 3
         except:
             pass
         print("Invalid choice.")
@@ -77,11 +77,11 @@ def ai_predict_next(seq, model):
 def comp_bat_user_bowl(target, difficulty=2, model=None):
     score = 0
     ball_count = 0
-    print("\n--- Computer Batting (2 Overs Max) ---")
+    print(f"\n--- Computer Batting ({BALL_COUNT/6} Overs Max) ---")
 
-    while ball_count < 12:
+    while ball_count < BALL_COUNT:
         try:
-            user_input = int(input(f"Ball {ball_count+1}/12 - Enter number (1-6): "))
+            user_input = int(input(f"Ball {ball_count+1}/{BALL_COUNT} - Enter number (1-6): "))
             if not (1 <= user_input <= 6): continue
         except:
             continue
@@ -91,11 +91,20 @@ def comp_bat_user_bowl(target, difficulty=2, model=None):
 
         if difficulty == 1:
             comp_choice = random.randint(1, 6)
-        elif difficulty == 2:
-            weights = [1 / (user_bowl_memory[i] + 1) for i in range(1, 7)]
-            comp_choice = random.choices(range(1, 7), weights=weights)[0]
+
         else:
-            comp_choice = ai_predict_next(user_bowl_sequence, model)
+            # Hard mode: smart + realistic
+            if len(user_bowl_sequence) >= 2 and len(set(user_bowl_sequence[-3:])) == 1:
+                # User is repeating one number, mimic realism by taking the bait 30% of time
+                repeated_number = user_bowl_sequence[-1]
+                if random.random() < 0.1:
+                    comp_choice = repeated_number
+                else:
+                    # Use model prediction
+                    comp_choice = ai_predict_next(user_bowl_sequence, model)
+            else:
+                # Regular LSTM model prediction
+                comp_choice = ai_predict_next(user_bowl_sequence, model)
 
         print(f"Computer chose: {comp_choice}")
         ball_count += 1
@@ -109,8 +118,8 @@ def comp_bat_user_bowl(target, difficulty=2, model=None):
             if target != -1 and score >= target:
                 break
 
-    if ball_count == 12:
-        print("Innings Over (12 balls)")
+    if ball_count == BALL_COUNT:
+        print(f"Innings Over ({BALL_COUNT/6} balls)")
         print(f"Final Computer Score: {score}")
 
     return score
@@ -120,11 +129,11 @@ def user_bat_comp_ball(target, model=None, difficulty=1):
     score = 0
     user_bat_sequence = []
     ball_count = 0
-    print("\n--- You Batting (2 Overs Max) ---")
+    print(f"\n--- You Batting ({BALL_COUNT/6} Overs Max) ---")
 
-    while ball_count < 12:
+    while ball_count < BALL_COUNT:
         try:
-            ask = int(input(f"Ball {ball_count+1}/12 - Enter number (1-6): "))
+            ask = int(input(f"Ball {ball_count+1}/{BALL_COUNT} - Enter number (1-6): "))
         except ValueError:
             continue
         while ask < 1 or ask > 6:
@@ -133,7 +142,18 @@ def user_bat_comp_ball(target, model=None, difficulty=1):
         user_bat_sequence.append(ask)
 
         if difficulty == 3 and model is not None:
-            comp_choice = ai_predict_next(user_bat_sequence, model)
+            if len(user_bat_sequence) > 3 and len(set(user_bat_sequence[-3:])) == 1:
+                # Pattern detected (e.g., [6,6,6]) — mimic human guess
+                comp_choice = user_bat_sequence[-1]
+            else:
+                prediction = ai_predict_next(user_bat_sequence, model)
+                freq = Counter(user_bat_sequence[-5:])
+                most_common = freq.most_common(1)[0][0]
+                # Weighted guess between model prediction and frequent move
+                comp_choice = random.choices(
+                    [prediction, most_common],
+                    weights=[0.65, 0.35]
+                )[0]
         else:
             comp_choice = random.randint(1, 6)
 
@@ -150,12 +170,11 @@ def user_bat_comp_ball(target, model=None, difficulty=1):
             if target != -1 and score >= target:
                 break
 
-    if ball_count == 12:
-        print("Innings Over (12 balls)")
+    if ball_count == BALL_COUNT:
+        print(f"Innings Over ({BALL_COUNT} balls)")
         print(f"Your Final Score: {score}")
 
-    if difficulty in [2, 3]:
-        save_batting_sequence(user_bat_sequence)
+    save_batting_sequence(user_bat_sequence)
 
     return score
 
