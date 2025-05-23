@@ -15,6 +15,7 @@ user_bowl_memory = defaultdict(int)
 user_bowl_sequence = []
 
 BALL_COUNT = 18
+MAX_NUMBER = 9 # Change the values in ai model and delete the model file and retrain it
 def save_batting_sequence(sequence):
     os.makedirs("data", exist_ok=True)
     file_path = "data/bat_sequences.json"
@@ -66,9 +67,9 @@ def toss():
 
 # Predict next move using LSTM
 def ai_predict_next(seq, model):
-    if len(seq) < 5:
-        return random.randint(1, 6)
-    input_seq = torch.tensor([seq[-5:]], dtype=torch.long)
+    if len(seq) < 3:
+        return random.randint(1, MAX_NUMBER)
+    input_seq = torch.tensor([[x - 1 for x in seq[-3:]]], dtype=torch.long)
     with torch.no_grad():
         output = model(input_seq)
     return torch.argmax(output, dim=1).item() + 1
@@ -81,8 +82,8 @@ def comp_bat_user_bowl(target, difficulty=2, model=None):
 
     while ball_count < BALL_COUNT:
         try:
-            user_input = int(input(f"Ball {ball_count+1}/{BALL_COUNT} - Enter number (1-6): "))
-            if not (1 <= user_input <= 6): continue
+            user_input = int(input(f"Ball {ball_count+1}/{BALL_COUNT} - Enter number (1-{MAX_NUMBER}): "))
+            if not (1 <= user_input <= MAX_NUMBER): continue
         except:
             continue
 
@@ -90,12 +91,11 @@ def comp_bat_user_bowl(target, difficulty=2, model=None):
         user_bowl_sequence.append(user_input)
 
         if difficulty == 1:
-            comp_choice = random.randint(1, 6)
+            comp_choice = random.randint(1, MAX_NUMBER)
 
         else:
             # Hard mode: smart + realistic
-            if len(user_bowl_sequence) >= 2 and len(set(user_bowl_sequence[-3:])) == 1:
-                # User is repeating one number, mimic realism by taking the bait 30% of time
+            if len(user_bowl_sequence) >= 3 and len(set(user_bowl_sequence[-3:])) == 1:
                 repeated_number = user_bowl_sequence[-1]
                 if random.random() < 0.1:
                     comp_choice = repeated_number
@@ -133,11 +133,11 @@ def user_bat_comp_ball(target, model=None, difficulty=1):
 
     while ball_count < BALL_COUNT:
         try:
-            ask = int(input(f"Ball {ball_count+1}/{BALL_COUNT} - Enter number (1-6): "))
+            ask = int(input(f"Ball {ball_count+1}/{BALL_COUNT} - Enter number (1-{MAX_NUMBER}): "))
         except ValueError:
             continue
-        while ask < 1 or ask > 6:
-            ask = int(input("Enter number (1-6): "))
+        while ask < 1 or ask > MAX_NUMBER:
+            ask = int(input(f"Enter number (1-{MAX_NUMBER}): "))
 
         user_bat_sequence.append(ask)
 
@@ -147,15 +147,15 @@ def user_bat_comp_ball(target, model=None, difficulty=1):
                 comp_choice = user_bat_sequence[-1]
             else:
                 prediction = ai_predict_next(user_bat_sequence, model)
-                freq = Counter(user_bat_sequence[-5:])
+                freq = Counter(user_bat_sequence[-3:])
                 most_common = freq.most_common(1)[0][0]
                 # Weighted guess between model prediction and frequent move
                 comp_choice = random.choices(
                     [prediction, most_common],
-                    weights=[0.65, 0.35]
+                    weights=[0.9, 0.1]
                 )[0]
         else:
-            comp_choice = random.randint(1, 6)
+            comp_choice = random.randint(1, MAX_NUMBER)
 
         print(f"Computer bowled: {comp_choice}")
         ball_count += 1
