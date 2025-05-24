@@ -433,12 +433,19 @@ elif st.session_state.game_state == 'user_batting':
             margin: 2px !important;  /* reduce space between buttons */
             height: 3em;
             width: 100%;
+            background-color: #007BFF;  /* Bootstrap blue */
+            color: blue;
+            border: none;
+            border-radius: 5px;
+        }
+        .stButton > button:hover {
+            background-color: #0056b3; /* Darker blue on hover */
+            color: white;
         }
         </style>
         """,
         unsafe_allow_html=True
     )
-
     st.markdown("### Select your batting number:")
     cols = st.columns(3)
     for i in range(3):
@@ -503,6 +510,14 @@ elif st.session_state.game_state == 'computer_batting':
             margin: 2px !important;  /* reduce space between buttons */
             height: 3em;
             width: 100%;
+            background-color: #007BFF;  /* Bootstrap blue */
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        .stButton > button:hover {
+            background-color: #0056b3; /* Darker blue on hover */
+            color: white;
         }
         </style>
         """,
