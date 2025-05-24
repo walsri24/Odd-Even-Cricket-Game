@@ -433,39 +433,31 @@ elif st.session_state.game_state == 'user_batting':
             margin: 2px !important;  /* reduce space between buttons */
             height: 3em;
             width: 100%;
-            background-color: #007BFF;  /* Bootstrap blue */
-            color: blue;
-            border: none;
-            border-radius: 5px;
-        }
-        .stButton > button:hover {
-            background-color: #0056b3; /* Darker blue on hover */
-            color: white;
         }
         </style>
         """,
         unsafe_allow_html=True
     )
     st.markdown("### Select your batting number:")
-    cols = st.columns(3)
-    for i in range(3):
-        for j in range(3):
-            number = i * 3 + j + 1
-            if cols[j].button(str(number), key=f"num_{number}"):
-                set_user_choice(number)
-                if st.session_state.batting_team == "user":
-                    process_user_batting()
-                else:
-                    process_computer_batting()
-                st.rerun()
-    # cols = st.columns(9)
-    # for i in range(9):
-    #     num = i + 1
-    #     with cols[i]:
-    #         if st.button(f"{num}", key=f"bat_{num}", use_container_width=True):
-    #             set_user_choice(num)
-    #             process_user_batting()
+    # cols = st.columns(3)
+    # for i in range(3):
+    #     for j in range(3):
+    #         number = i * 3 + j + 1
+    #         if cols[j].button(str(number), key=f"num_{number}"):
+    #             set_user_choice(number)
+    #             if st.session_state.batting_team == "user":
+    #                 process_user_batting()
+    #             else:
+    #                 process_computer_batting()
     #             st.rerun()
+    cols = st.columns(9)
+    for i in range(9):
+        num = i + 1
+        with cols[i]:
+            if st.button(f"{num}", key=f"bat_{num}", use_container_width=True):
+                set_user_choice(num)
+                process_user_batting()
+                st.rerun()
 
     # Ball animation if waiting for input
     if not st.session_state.is_out:
@@ -510,40 +502,32 @@ elif st.session_state.game_state == 'computer_batting':
             margin: 2px !important;  /* reduce space between buttons */
             height: 3em;
             width: 100%;
-            background-color: #007BFF;  /* Bootstrap blue */
-            color: white;
-            border: none;
-            border-radius: 5px;
-        }
-        .stButton > button:hover {
-            background-color: #0056b3; /* Darker blue on hover */
-            color: white;
         }
         </style>
         """,
         unsafe_allow_html=True
     )
     st.markdown("### Select your bowling number:")
-    cols = st.columns(3)
-    for i in range(3):
-        for j in range(3):
-            number = i * 3 + j + 1
-            if cols[j].button(str(number), key=f"num_{number}"):
-                set_user_choice(number)
-                if st.session_state.batting_team == "user":
-                    process_user_batting()
-                else:
-                    process_computer_batting()
-                st.rerun()
-    # cols = st.columns(9)
-    # for i in range(9):
-    #     num = i + 1
-    #     with cols[i]:
-    #         if st.button(f"{num}", key=f"bowl_{num}", use_container_width=True):
-    #             set_user_choice(num)
-    #             st.session_state.user_sequence.append(num)
-    #             process_computer_batting()
+    # cols = st.columns(3)
+    # for i in range(3):
+    #     for j in range(3):
+    #         number = i * 3 + j + 1
+    #         if cols[j].button(str(number), key=f"num_{number}"):
+    #             set_user_choice(number)
+    #             if st.session_state.batting_team == "user":
+    #                 process_user_batting()
+    #             else:
+    #                 process_computer_batting()
     #             st.rerun()
+    cols = st.columns(9)
+    for i in range(9):
+        num = i + 1
+        with cols[i]:
+            if st.button(f"{num}", key=f"bowl_{num}", use_container_width=True):
+                set_user_choice(num)
+                st.session_state.user_sequence.append(num)
+                process_computer_batting()
+                st.rerun()
 
     # Ball animation if waiting for input
     if not st.session_state.is_out:
