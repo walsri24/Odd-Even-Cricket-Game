@@ -6,6 +6,10 @@ import torch
 from collections import defaultdict, Counter
 import time
 import base64
+
+from streamlit import metric
+from css_loader import load_css
+
 from game import (
     BALL_COUNT,
     MAX_NUMBER,
@@ -25,146 +29,13 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-
-# Custom CSS
-def load_css():
-    st.markdown("""
-    <style>
-    /* Main container styling */
-    .main {
-        background-color: #000000;
-        color: #333;
-    }
-
-    /* Cricket theme 
-    .stApp {
-        background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)), 
-                          url('https://images.pexels.com/photos/3689634/pexels-photo-3689634.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2');
-        background-size: cover;
-    }
-    */
-    
-    /* Header styling */
-    h1, h2, h3 {
-        color: #3E8914;
-        font-family: 'Arial', sans-serif;
-    }
-
-    /* Card styling */
-    .css-1r6slb0, .css-keje6w {
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        padding: 1.5rem;
-        margin-bottom: 1rem;
-        background-color: rgba(255, 255, 255, 0.9);
-    }
-
-    /* Button styling */
-    .stButton > button {
-        border-radius: 20px;
-        background-color: #4A90E2;
-        color: white;
-        font-weight: bold;
-        transition: all 0.3s ease;
-    }
-
-    .stButton > button:hover {
-        background-color: #3E8914;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    }
-
-    /* Number input buttons */
-    .number-btn {
-        display: inline-block;
-        width: 50px;
-        height: 50px;
-        margin: 5px;
-        border-radius: 50%;
-        background-color: #4A90E2;
-        color: black;
-        font-size: 18px;
-        line-height: 50px;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-
-    .number-btn:hover {
-        background-color: #3E8914;
-        transform: scale(1.1);
-    }
-
-    /* Scoreboard styling */
-    .scoreboard {
-        background-color: #333;
-        color: white;
-        padding: 1rem;
-        border-radius: 10px;
-        font-family: 'Courier New', monospace;
-        margin: 1rem 0;
-    }
-
-    .score-number {
-        font-size: 24px;
-        font-weight: bold;
-        color: #ffcc00;
-    }
-
-    /* Message styling */
-    .success-msg {
-        color: #3E8914;
-        font-weight: bold;
-    }
-
-    .danger-msg {
-        color: #e74c3c;
-        font-weight: bold;
-    }
-
-    .info-msg {
-        color: #4A90E2;
-        font-weight: bold;
-    }
-
-    /* Cricket ball animation */
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
-    .cricket-ball {
-        width: 40px;
-        height: 40px;
-        background-color: #c0392b;
-        border-radius: 50%;
-        display: inline-block;
-        animation: spin 2s linear infinite;
-        position: relative;
-    }
-
-    .cricket-ball:before {
-        content: "";
-        position: absolute;
-        width: 38px;
-        height: 19px;
-        background-color: #c0392b;
-        border: 1px solid #8B0000;
-        border-radius: 19px 19px 0 0;
-        top: 0;
-        left: 0;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-
 load_css()
 
 # Initialize session state
 if 'game_state' not in st.session_state:
     st.session_state.game_state = 'main_menu'
 if 'ai_model' not in st.session_state:
-    st.session_state.ai_model = None
+    st.session_state.ai_model = load_model()
 if 'batting_team' not in st.session_state:
     st.session_state.batting_team = None
 if 'user_score' not in st.session_state:
@@ -193,15 +64,16 @@ if 'innings' not in st.session_state:
     st.session_state.innings = 1
 if 'stats' not in st.session_state:
     # Load stats if they exist
-    if os.path.exists("data/stats.json"):
-        with open("data/stats.json", "r") as f:
+    if os.path.exists("data/stats_app.json"):
+        with open("data/stats_app.json", "r") as f:
             try:
                 st.session_state.stats = json.load(f)
             except json.JSONDecodeError:
-                st.session_state.stats = {"win": 0, "loss": 0, "tie": 0}
+                st.session_state.stats = {"games": 0, "wins": 0, "losses": 0, "ties": 0}
     else:
-        st.session_state.stats = {"win": 0, "lose": 0, "tie": 0}
-
+        st.session_state.stats = {"games": 0, "wins": 0, "losses": 0, "ties": 0}
+if 'stats_updated' not in st.session_state:
+    st.session_state.stats_updated = False  # New flag to track if stats are updated
 
 # Helper functions
 def reset_game():
@@ -217,24 +89,23 @@ def reset_game():
     st.session_state.is_out = False
     st.session_state.message = ""
     st.session_state.innings = 1
-
+    st.session_state.stats_updated = False  # Reset stats_updated flag
 
 def set_difficulty(level):
     st.session_state.difficulty = level
-    if level == 2:  # Hard mode
+    if level == 2 or level == 3:  # Hard mode
         with st.spinner("Loading AI model..."):
             # Ensure the model directory exists
             os.makedirs("data", exist_ok=True)
             # Try loading the model, train if needed
             model_path = "data/model.pth"
-            if not os.path.exists(model_path):
-                st.info("Training AI model for first use...")
+            if os.path.exists(model_path):
+                st.info("Training AI model...")
                 train()
             st.session_state.ai_model = load_model()
     else:
         st.session_state.ai_model = None
     st.session_state.game_state = 'toss'
-
 
 def do_toss(choice):
     outcome = random.choice(['H', 'T'])
@@ -252,7 +123,6 @@ def do_toss(choice):
             st.session_state.game_state = 'user_batting'
         st.session_state.user_batted_first = (st.session_state.batting_team == "user")
 
-
 def choose_batting(choice):
     if choice == "bat":
         st.session_state.batting_team = "user"
@@ -263,10 +133,8 @@ def choose_batting(choice):
         st.session_state.user_batted_first = False
         st.session_state.game_state = 'computer_batting'
 
-
 def set_user_choice(num):
     st.session_state.user_choice = num
-
 
 def process_user_batting():
     # Update session state
@@ -335,7 +203,6 @@ def process_user_batting():
                 # Save batting sequence
                 save_batting_sequence(st.session_state.user_sequence)
 
-
 def process_computer_batting():
     # Update session state for user's bowling choice
     st.session_state.ball_count += 1
@@ -399,7 +266,6 @@ def process_computer_batting():
             else:
                 st.session_state.game_state = 'game_over'
 
-
 def continue_to_next_innings():
     st.session_state.ball_count = 0
     st.session_state.user_sequence = []
@@ -413,8 +279,26 @@ def continue_to_next_innings():
         st.session_state.batting_team = "user"
         st.session_state.game_state = 'user_batting'
 
-
 def determine_winner():
+    if st.session_state.stats_updated:
+        # Stats already updated for this game, just return the result message
+        if st.session_state.user_batted_first:
+            if st.session_state.user_score > st.session_state.comp_score:
+                message = "🎉 YOU WIN!"
+            elif st.session_state.user_score < st.session_state.comp_score:
+                message = "😞 YOU LOSE!"
+            else:
+                message = "🤝 MATCH TIED!"
+        else:
+            if st.session_state.user_score > st.session_state.comp_score:
+                message = "🎉 YOU WIN!"
+            elif st.session_state.user_score < st.session_state.comp_score:
+                message = "😞 YOU LOSE!"
+            else:
+                message = "🤝 MATCH TIED!"
+        return message
+
+    # Determine result and update stats
     if st.session_state.user_batted_first:
         if st.session_state.user_score > st.session_state.comp_score:
             result = "win"
@@ -436,9 +320,15 @@ def determine_winner():
             result = "tie"
             message = "🤝 MATCH TIED!"
 
-    update_stats(result)
-    return message
+    # Update stats and save to file
+    update_stats(result, filename="data/stats_app.json")
+    st.session_state.stats_updated = True  # Mark stats as updated
 
+    # Reload stats to ensure session state is up-to-date
+    with open("data/stats_app.json", "r") as f:
+        st.session_state.stats = json.load(f)
+
+    return message
 
 # Main menu
 if st.session_state.game_state == 'main_menu':
@@ -470,7 +360,8 @@ if st.session_state.game_state == 'main_menu':
     # Show stats if available
     if st.session_state.stats:
         st.markdown("### Your Stats")
-        col1, col2, col3 = st.columns(3)
+        col0, col1, col2, col3 = st.columns(4)
+        col0.metric("Games", st.session_state.stats["games"])
         col1.metric("Wins", st.session_state.stats["wins"])
         col2.metric("Losses", st.session_state.stats["losses"])
         col3.metric("Ties", st.session_state.stats["ties"])
@@ -634,12 +525,13 @@ elif st.session_state.game_state == 'game_over':
 
     # Show current stats
     st.markdown("### Your Stats")
-    col1, col2, col3 = st.columns(3)
+    col0, col1, col2, col3 = st.columns(4)
+    col0.metric("Games", st.session_state.stats["games"])
     col1.metric("Wins", st.session_state.stats["wins"])
     col2.metric("Losses", st.session_state.stats["losses"])
     col3.metric("Ties", st.session_state.stats["ties"])
 
     # Play again button
     if st.button("Play Again", use_container_width=True):
-        reset_game()
+        reset_game()  # Reset game state before rerun
         st.rerun()

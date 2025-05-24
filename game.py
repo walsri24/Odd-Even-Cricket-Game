@@ -44,7 +44,7 @@ def select_difficulty():
         try:
             level = int(input("Enter 1/2: "))
             if level in [1, 2]:
-                return 1 if level == 1 else 3
+                return 1 if level == 1 else 2
         except:
             pass
         print("Invalid choice.")
@@ -183,7 +183,7 @@ def user_bat_comp_ball(target, model=None, difficulty=1):
 def play_game():
     train()
     difficulty = select_difficulty()
-    if difficulty == 3:
+    if difficulty == 2:
         ai_model = load_model()
     else:
         ai_model = None
@@ -221,23 +221,23 @@ def play_game():
     if user_batted_first:
         if user_score > comp_score:
             print("🎉 YOU WIN!")
-            update_stats("win")
+            update_stats("win", filename="data/stats.json")
         elif user_score < comp_score:
             print("😞 YOU LOSE!")
-            update_stats("lose")
+            update_stats("lose", filename="data/stats.json")
         else:
             print("🤝 MATCH TIED!")
-            update_stats("tie")
+            update_stats("tie", filename="data/stats.json")
     else:
         if user_score > comp_score:
             print("🎉 YOU WIN!")
-            update_stats("win")
+            update_stats("win", filename="data/stats.json")
         elif user_score < comp_score:
             print("😞 YOU LOSE!")
-            update_stats("lose")
+            update_stats("lose", filename="data/stats.json")
         else:
             print("🤝 MATCH TIED!")
-            update_stats("tie")
+            update_stats("tie", filename="data/stats.json")
 
 if __name__ == "__main__":
     play_game()
